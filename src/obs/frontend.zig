@@ -38,7 +38,11 @@ pub const OBSScene = struct {
         // TODO write a c compat header for this
         // it's an inline and zig doesn't like C++
         // defer obs_frontend_source_list_free(&scenes);
-        std.debug.print("source data {any}\n", .{scenes.sources.src});
+        //std.debug.print("source data {any}\n", .{scenes.sources.src});
+        if (scenes.sources.src.num == 0) {
+            std.debug.print("Warning: 0 sources found}\n", .{});
+            return;
+        }
 
         const array: [*]?*OBS.obs_source_t = @ptrCast(scenes.sources.src.array);
         for (array[0..scenes.sources.src.num]) |src| {
