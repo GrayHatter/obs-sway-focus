@@ -1,0 +1,17 @@
+.{
+    .name = "obs-sway-plugin",
+    .version = "0.0.0",
+    //.minimum_zig_version = "0.11.0",
+    .dependencies = .{
+    	.@"obzig-plugin" = .{
+		.path = "../obzig-plugin",
+	},
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}

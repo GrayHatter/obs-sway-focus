@@ -2,9 +2,9 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const sway_ipc = @import("sway-ipc.zig");
-const obs = @import("obs.zig");
+const obs = @import("OBS");
 
-pub const module_defaults: obs.ModuleDefaults = .{
+pub const module_defaults: obs.ModuleInfo = .{
     .name = "obs-sway-focus",
     .version = "0.0.1",
     .author = "grayhatter",
@@ -15,7 +15,7 @@ pub const module_defaults: obs.ModuleDefaults = .{
 };
 
 comptime {
-    obs.exportOBS();
+    obs.includeExports();
 }
 
 var arena: std.heap.ArenaAllocator = undefined;
@@ -86,7 +86,9 @@ fn on_load() bool {
     alloc = arena.allocator();
     threads[0] = std.Thread.spawn(.{}, watchSway, .{null}) catch unreachable;
 
-    obs.QtShim.newDock();
+    if (!obs.QtShim.newDock("Sway Focus")) {
+        obs.log("Unable to create dock");
+    }
     return true;
 }
 
