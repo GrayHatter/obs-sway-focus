@@ -5,7 +5,7 @@ const sway_ipc = @import("sway-ipc.zig");
 const obs = @import("OBS");
 
 pub const module_defaults: obs.ModuleInfo = .{
-    .name = "obs-sway-focus",
+    .name = "obs_sway_focus",
     .version = "0.0.1",
     .author = "grayhatter",
     .description = "tracks focus of sway windows",
@@ -52,7 +52,7 @@ fn watchSway(_: ?*anyopaque) void {
         obs.log("crash trying to subscribe");
         unreachable;
     };
-    std.time.sleep(10_000_000_000);
+    std.Thread.sleep(10_000_000_000);
     obs.Scene.findScenes();
     while (running) {
         const msg = sway.loop() catch {
@@ -60,7 +60,7 @@ fn watchSway(_: ?*anyopaque) void {
             unreachable;
         };
 
-        std.time.sleep(100_000_000);
+        std.Thread.sleep(100_000_000);
         switch (msg.toStruct(alloc) catch {
             obs.log("unable to build struct");
             continue;

@@ -7,11 +7,16 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addSharedLibrary(.{
-        .name = "obs-sway-focus",
-        .root_source_file = .{ .path = "src/root.zig" },
+    const module = b.addModule("obs_sway_plugin", .{
+        .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
+    });
+
+    const lib = b.addLibrary(.{
+        .name = "obs_sway_plugin",
+        .root_module = module,
+        .linkage = .dynamic,
     });
 
     const obs = b.dependency("obzig-plugin", .{
@@ -30,9 +35,7 @@ pub fn build(b: *std.Build) void {
     );
 
     const lib_unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/root.zig" },
-        .target = target,
-        .optimize = optimize,
+        .root_module = module,
     });
     lib_unit_tests.linkLibC();
 

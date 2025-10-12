@@ -1,6 +1,3 @@
-const std = @import("std");
-const Allocator = std.mem.Allocator;
-
 pub const SwayMessages = @import("sway-messages.zig");
 
 pub const Payload = enum(u32) {
@@ -47,22 +44,21 @@ pub const Message = struct {
         a.free(m.data);
     }
 
-    pub fn read(a: Allocator, r: *std.net.Stream.Reader) !Message {
+    pub fn read(a: Allocator, r: *Reader) !Message {
         var m = Message{ .data = undefined };
-        try r.skipBytes(6, .{});
+        _ = try r.discard(.limited(6));
         m.header = .{
-            .length = try r.readInt(u32, .little),
-            .payload_type = Payload.fromInt(try r.readInt(u32, .little)),
+            .length = try r.takeInt(u32, .little),
+            .payload_type = Payload.fromInt(try r.takeInt(u32, .little)),
         };
         // TODO specify a better max size
         if (m.header.length == 0 or m.header.length > 0x2ffff) unreachable;
-        m.data = try a.alloc(u8, m.header.length);
-        const rlen = try r.read(@constCast(m.data));
-        std.debug.assert(rlen == m.data.len);
+        m.data = try r.readAlloc(a, m.header.length);
+        std.debug.assert(m.header.length == m.data.len);
         return m;
     }
 
-    pub fn send(m: Message, w: *std.net.Stream.Writer) !void {
+    pub fn send(m: Message, w: *Writer) !void {
         std.debug.assert(m.header.length == m.data.len);
         try w.writeAll(m.header.magic);
         try w.writeInt(u32, m.header.length, .little);
@@ -80,20 +76,20 @@ pub const Message = struct {
 };
 
 pub fn getSockPath(a: Allocator) ![]const u8 {
-    var child = std.ChildProcess.init(&[_][]const u8{ "sway", "--get-socketpath" }, a);
+    var child = std.process.Child.init(&[_][]const u8{ "sway", "--get-socketpath" }, a);
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
 
-    var stdout = std.ArrayList(u8).init(a);
-    var stderr = std.ArrayList(u8).init(a);
-    defer stdout.clearAndFree();
+    var stdout: ArrayList(u8) = .{};
+    var stderr: ArrayList(u8) = .{};
+    defer stdout.clearAndFree(a);
 
     try child.spawn();
-    try child.collectOutput(&stdout, &stderr, 0xff);
+    try child.collectOutput(a, &stdout, &stderr, 0xffff);
     _ = try child.wait();
 
     _ = stdout.pop();
-    return try stdout.toOwnedSlice();
+    return try stdout.toOwnedSlice(a);
 }
 
 pub const Connection = struct {
@@ -116,31 +112,34 @@ pub const Connection = struct {
 
     pub fn subscribe(c: *Connection) !void {
         var sock = c.sock orelse unreachable;
-        var w = sock.writer();
-        try Subscribe.send(&w);
+        var w_b: [0x4000]u8 = undefined;
+        var w = sock.writer(&w_b);
+        try Subscribe.send(&w.interface);
+        try w.interface.flush();
     }
 
     pub fn loop(c: *Connection) !Message {
         var sock = c.sock orelse unreachable;
 
-        var r = sock.reader();
-        return try Message.read(c.alloc, &r);
+        var r_b: [0x4000]u8 = undefined;
+        var r = sock.reader(&r_b);
+        return try Message.read(c.alloc, r.interface());
     }
 };
 
 test "sway get socketpath" {
     const a = std.testing.allocator;
-    var child = std.ChildProcess.init(&[_][]const u8{ "sway", "--get-socketpath" }, a);
+    var child = std.process.Child.init(&[_][]const u8{ "sway", "--get-socketpath" }, a);
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
 
-    var stdout = std.ArrayList(u8).init(a);
-    defer stdout.clearAndFree();
-    var stderr = std.ArrayList(u8).init(a);
-    defer stdout.clearAndFree();
+    var stdout: ArrayList(u8) = .{};
+    defer stdout.clearAndFree(a);
+    var stderr: ArrayList(u8) = .{};
+    defer stdout.clearAndFree(a);
 
     try child.spawn();
-    try child.collectOutput(&stdout, &stderr, 0xff);
+    try child.collectOutput(a, &stdout, &stderr, 0xff);
     const out = try child.wait();
     _ = out;
     std.debug.print("sway socket path {s}\n", .{stdout.items});
@@ -189,3 +188,9 @@ test "waiting" {
         defer thing.deinit();
     }
 }
+
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
+const Reader = std.Io.Reader;
+const Writer = std.Io.Writer;

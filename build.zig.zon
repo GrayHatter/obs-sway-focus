@@ -1,11 +1,13 @@
 .{
-    .name = "obs-sway-plugin",
-    .version = "0.0.0",
-    //.minimum_zig_version = "0.11.0",
+    .name = .obs_sway_focus,
+    .fingerprint = 0x68f8f56707ea8cb7,
+    .version = "0.0.1",
+    .minimum_zig_version = "0.15.1",
     .dependencies = .{
-    	.@"obzig-plugin" = .{
-		.path = "../obzig-plugin",
-	},
+        .@"obzig-plugin" = .{
+            .url = "git+https://github.com/GrayHatter/obzig-plugin.git#b076d16432fb221669cd48dc8483b4fd51529352",
+            .hash = "obzig-0.0.0-Llqm_rI4AACbWTa_YhmVbTVeT_rkuqIYZXX0SQ7LmYoI",
+        },
     },
 
     .paths = .{
