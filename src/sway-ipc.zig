@@ -75,32 +75,42 @@ pub const Message = struct {
     }
 };
 
-pub fn getSockPath(a: Allocator) ![]const u8 {
-    var child = std.process.Child.init(&[_][]const u8{ "sway", "--get-socketpath" }, a);
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Pipe;
+pub fn getSockPath(buffer: []u8, io: std.Io) ![]const u8 {
+    var child = try std.process.spawn(io, .{
+        .argv = &.{ "sway", "--get-socketpath" },
+        .stdout = .pipe,
+        .stderr = .ignore,
+        .stdin = .ignore,
+    });
 
-    var stdout: ArrayList(u8) = .{};
-    var stderr: ArrayList(u8) = .{};
-    defer stdout.clearAndFree(a);
+    var stdout: Writer = .fixed(buffer);
 
-    try child.spawn();
-    try child.collectOutput(a, &stdout, &stderr, 0xffff);
-    _ = try child.wait();
+    defer if (child.stdout) |out| out.close(io);
 
-    _ = stdout.pop();
-    return try stdout.toOwnedSlice(a);
+    var r_b: [8196]u8 = undefined;
+    var outr = child.stdout.?.reader(io, &r_b);
+    // We just assume the prefix doesn't change
+    while (outr.interface.stream(&stdout, .limited(256))) |_| {
+        // continue until we hit EOS
+    } else |err| switch (err) {
+        error.EndOfStream => {},
+        else => return err,
+    }
+    _ = try child.wait(io);
+
+    return std.mem.trim(u8, stdout.buffered(), " \n\t");
 }
 
 pub const Connection = struct {
     alloc: Allocator,
     socket_path: ?[]const u8 = null,
-    sock: ?std.net.Stream = null,
+    sock: ?std.Io.net.Stream = null,
 
-    pub fn init(a: Allocator) !Connection {
+    pub fn init(a: Allocator, io: std.Io) !Connection {
         var c = Connection{ .alloc = a };
-        c.socket_path = try getSockPath(c.alloc);
-        c.sock = try std.net.connectUnixSocket(c.socket_path.?);
+        var b: [256]u8 = undefined;
+        c.socket_path = try a.dupe(u8, try getSockPath(&b, io));
+        c.sock = try (try std.Io.net.UnixAddress.init(c.socket_path.?)).connect(io);
         return c;
     }
 
@@ -110,20 +120,20 @@ pub const Connection = struct {
         if (c.sock) |sock| sock.close();
     }
 
-    pub fn subscribe(c: *Connection) !void {
+    pub fn subscribe(c: *Connection, io: std.Io) !void {
         var sock = c.sock orelse unreachable;
         var w_b: [0x4000]u8 = undefined;
-        var w = sock.writer(&w_b);
+        var w = sock.writer(io, &w_b);
         try Subscribe.send(&w.interface);
         try w.interface.flush();
     }
 
-    pub fn loop(c: *Connection) !Message {
+    pub fn loop(c: *Connection, io: std.Io) !Message {
         var sock = c.sock orelse unreachable;
 
         var r_b: [0x4000]u8 = undefined;
-        var r = sock.reader(&r_b);
-        return try Message.read(c.alloc, r.interface());
+        var r = sock.reader(io, &r_b);
+        return try Message.read(c.alloc, &r.interface);
     }
 };
 

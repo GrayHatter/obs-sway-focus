@@ -25,7 +25,7 @@ pub fn build(b: *std.Build) void {
     });
 
     lib.root_module.addImport("OBS", obs.module("OBS"));
-    lib.linkLibrary(obs.artifact("obzig-plugin"));
+    lib.root_module.linkLibrary(obs.artifact("obzig-plugin"));
 
     b.getInstallStep().dependOn(
         &b.addInstallArtifact(lib, .{
@@ -37,7 +37,6 @@ pub fn build(b: *std.Build) void {
     const lib_unit_tests = b.addTest(.{
         .root_module = module,
     });
-    lib_unit_tests.linkLibC();
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 

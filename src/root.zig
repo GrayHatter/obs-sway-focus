@@ -20,6 +20,7 @@ comptime {
 
 var arena: std.heap.ArenaAllocator = undefined;
 var alloc: Allocator = undefined;
+var io: std.Io = undefined;
 var running = true;
 var threads: [1]std.Thread = undefined;
 
@@ -30,37 +31,37 @@ fn requestBuild() void {
     //std.debug.print("request build\n", .{});
     if (!on_build) obs.Scene.swapPreview();
     on_build = true;
-    last = std.time.milliTimestamp();
+    last = std.Io.Clock.awake.now(io).toMilliseconds();
 }
 
 fn requestCode() void {
     //std.debug.print("request code\n", .{});
-    if (last < std.time.milliTimestamp() - 1500 and on_build) {
+    if (last < std.Io.Clock.awake.now(io).toMilliseconds() and on_build) {
         obs.Scene.swapPreview();
     }
     on_build = false;
-    last = std.time.milliTimestamp();
+    last = std.Io.Clock.awake.now(io).toMilliseconds();
 }
 
 fn watchSway(_: ?*anyopaque) void {
     obs.log("sway thread running");
-    var sway = sway_ipc.Connection.init(alloc) catch |err| {
+    var sway = sway_ipc.Connection.init(alloc, io) catch |err| {
         obs.logFmt("connection error {}", .{err});
         return;
     };
-    sway.subscribe() catch {
+    sway.subscribe(io) catch {
         obs.log("crash trying to subscribe");
         unreachable;
     };
-    std.Thread.sleep(10_000_000_000);
+    io.sleep(.fromSeconds(10), .awake) catch return;
     obs.Scene.findScenes();
     while (running) {
-        const msg = sway.loop() catch {
+        const msg = sway.loop(io) catch {
             obs.log("unexpected read error");
             unreachable;
         };
 
-        std.Thread.sleep(100_000_000);
+        io.sleep(.fromMilliseconds(10), .awake) catch return;
         switch (msg.toStruct(alloc) catch {
             obs.log("unable to build struct");
             continue;
@@ -81,9 +82,12 @@ fn watchSway(_: ?*anyopaque) void {
     obs.log("sway-focus thread exit");
 }
 
+var threaded: std.Io.Threaded = .init_single_threaded;
+
 fn on_load() bool {
     arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     alloc = arena.allocator();
+    io = threaded.io();
     threads[0] = std.Thread.spawn(.{}, watchSway, .{null}) catch unreachable;
 
     if (!obs.QtShim.newDock("Sway Focus")) {
