@@ -1,16 +1,11 @@
 const std = @import("std");
 
-// Although this function looks imperative, note that its job is to
-// declaratively construct a build graph that will be executed by an external
-// runner.
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
 
     const module = b.addModule("obs_sway_plugin", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
-        .optimize = optimize,
     });
 
     const lib = b.addLibrary(.{
@@ -19,13 +14,9 @@ pub fn build(b: *std.Build) void {
         .linkage = .dynamic,
     });
 
-    const obs = b.dependency("obzig-plugin", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
+    const obs = b.dependency("obzig", .{ .target = target });
     lib.root_module.addImport("OBS", obs.module("OBS"));
-    lib.root_module.linkLibrary(obs.artifact("obzig-plugin"));
+    lib.root_module.linkLibrary(obs.artifact("obzig"));
 
     b.getInstallStep().dependOn(
         &b.addInstallArtifact(lib, .{

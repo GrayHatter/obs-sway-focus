@@ -1,9 +1,3 @@
-const std = @import("std");
-const Allocator = std.mem.Allocator;
-
-const sway_ipc = @import("sway-ipc.zig");
-const obs = @import("OBS");
-
 pub const module_defaults: obs.ModuleInfo = .{
     .name = "obs_sway_focus",
     .version = "0.0.1",
@@ -45,18 +39,19 @@ fn requestCode() void {
 
 fn watchSway(_: ?*anyopaque) void {
     obs.log("sway thread running");
+    std.debug.print("sway thread running\n", .{});
     var sway = sway_ipc.Connection.init(alloc, io) catch |err| {
         obs.logFmt("connection error {}", .{err});
         return;
     };
-    sway.subscribe(io) catch {
+    sway.subscribe() catch {
         obs.log("crash trying to subscribe");
         unreachable;
     };
     io.sleep(.fromSeconds(10), .awake) catch return;
     obs.Scene.findScenes();
     while (running) {
-        const msg = sway.loop(io) catch {
+        const msg = sway.loop() catch {
             obs.log("unexpected read error");
             unreachable;
         };
@@ -102,4 +97,17 @@ fn on_unload() void {
     arena.deinit();
 }
 
-test "basic add functionality" {}
+test {
+    //_ = &std.testing.refAllDecls(@This());
+    _ = &sway_ipc;
+}
+
+comptime {
+    _ = &on_load;
+}
+
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+
+const sway_ipc = @import("sway-ipc.zig");
+const obs = @import("OBS");

@@ -2,11 +2,11 @@
     .name = .obs_sway_focus,
     .fingerprint = 0x68f8f56707ea8cb7,
     .version = "0.0.1",
-    .minimum_zig_version = "0.16.0-dev.2535+b5bd49460",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
-        .@"obzig-plugin" = .{
-            .url = "git+https://github.com/GrayHatter/obzig-plugin.git#e5d1193eeabbe888270158e0d8fa9ecb8ba4759b",
-            .hash = "obzig-0.0.0-Llqm_tBBAACgPe0_uHQUVl4fklaSmOtGFDk2B2oBv_TC",
+        .obzig = .{
+            .url = "git+https://github.com/GrayHatter/obzig-plugin.git#cb8f9d2f775789fdefb310ecd509c54738fa2e8e",
+            .hash = "obzig-0.0.1-Llqm_tg-AACGWNOn2aiA7YuGGSmCsmTmtNOJwz2dNVVq",
         },
     },
 
