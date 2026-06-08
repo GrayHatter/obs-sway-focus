@@ -97,8 +97,11 @@ pub fn getSockPath(buffer: []u8, io: std.Io) ![]const u8 {
         else => return err,
     }
     _ = try child.wait(io);
+    const path = std.mem.trim(u8, stdout.buffered(), " \n\t");
+    if (path.len > 0)
+        return path;
 
-    return std.mem.trim(u8, stdout.buffered(), " \n\t");
+    return error.GetPathFailed;
 }
 
 pub const Connection = struct {
@@ -110,12 +113,14 @@ pub const Connection = struct {
 
     pub fn init(a: Allocator, io: std.Io) !Connection {
         var b: [256]u8 = undefined;
-        const path = try a.dupe(u8, try getSockPath(&b, io));
-        errdefer a.free(path);
-        const stream = try (try std.Io.net.UnixAddress.init(path)).connect(io);
+        const path = try getSockPath(&b, io);
+        std.debug.print("path {s}\n", .{path});
+        const path_a = try a.dupe(u8, path);
+        errdefer a.free(path_a);
+        const stream = try (try std.Io.net.UnixAddress.init(path_a)).connect(io);
         return .{
             .alloc = a,
-            .socket_path = path,
+            .socket_path = path_a,
             .stream = stream,
             .reader = stream.reader(io, try a.alloc(u8, 2048)),
             .writer = stream.writer(io, try a.alloc(u8, 2048)),
